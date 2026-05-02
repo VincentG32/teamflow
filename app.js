@@ -56,6 +56,7 @@ const state = {
   authError: null,
   profileEditing: false,
   profileError: null,
+  mobileMenuOpen: false, // burger menu (≤768px)
 };
 
 state.currentUser = loadSession();
@@ -145,6 +146,7 @@ function actionLogout() {
   state.currentUser = null;
   state.view = 'auth';
   state.authMode = 'login';
+  state.mobileMenuOpen = false;
   saveSession(null);
   toast('Déconnexion réussie.');
   render();
@@ -291,9 +293,12 @@ function viewAuth() {
         </form>
 
         <div class="auth-hint">
-          <strong>Comptes de démo :</strong><br>
-          Admin · <code>admin@teamflow.test</code> / <code>admin</code><br>
-          User · <code>alice@teamflow.test</code> / <code>demo</code>
+          <strong>Comptes de démo :</strong>
+          <ul class="auth-hint-list">
+            <li><span class="auth-hint-role">Admin</span> <code>admin@teamflow.test</code> / <code>admin</code></li>
+            <li><span class="auth-hint-role">User</span>&nbsp; <code>alice@teamflow.test</code> / <code>demo</code></li>
+            <li><span class="auth-hint-role">User</span>&nbsp; <code>bob@teamflow.test</code>&nbsp;&nbsp; / <code>demo</code></li>
+          </ul>
         </div>
       </div>
     </div>
@@ -481,10 +486,10 @@ function viewAdmin() {
           const count = db.tasks.filter(t => t.userId === u.id).length;
           return `
             <tr>
-              <td><strong>${escapeHtml(u.firstName)}</strong></td>
-              <td>${escapeHtml(u.email)}</td>
-              <td><span class="badge ${u.role === 'admin' ? 'badge-admin' : 'badge-user'}">${u.role}</span></td>
-              <td>${count}</td>
+              <td data-label="Utilisateur"><strong>${escapeHtml(u.firstName)}</strong></td>
+              <td data-label="Email">${escapeHtml(u.email)}</td>
+              <td data-label="Rôle"><span class="badge ${u.role === 'admin' ? 'badge-admin' : 'badge-user'}">${u.role}</span></td>
+              <td data-label="Tâches">${count}</td>
             </tr>
           `;
         }).join('')}
@@ -497,6 +502,16 @@ function viewAdmin() {
 function viewNav() {
   const u = state.currentUser;
   const isAdmin = u.role === 'admin';
+  const tabs = [
+    ['dashboard', 'Accueil'],
+    ['tasks',     'Tâches'],
+    ['profile',   'Profil'],
+    ...(isAdmin ? [['admin', 'Admin']] : []),
+  ];
+  const tabsHtml = tabs.map(([v, label]) => `
+    <button class="nav-tab ${state.view === v ? 'active' : ''}" data-action="goto" data-view="${v}">${label}</button>
+  `).join('');
+
   return `
     <nav class="nav">
       <div class="nav-brand">
@@ -504,11 +519,8 @@ function viewNav() {
         <span>TeamFlow</span>
       </div>
 
-      <div class="nav-tabs">
-        <button class="nav-tab ${state.view === 'dashboard' ? 'active' : ''}" data-action="goto" data-view="dashboard">Accueil</button>
-        <button class="nav-tab ${state.view === 'tasks' ? 'active' : ''}"     data-action="goto" data-view="tasks">Tâches</button>
-        <button class="nav-tab ${state.view === 'profile' ? 'active' : ''}"   data-action="goto" data-view="profile">Profil</button>
-        ${isAdmin ? `<button class="nav-tab ${state.view === 'admin' ? 'active' : ''}" data-action="goto" data-view="admin">Admin</button>` : ''}
+      <div class="nav-tabs nav-tabs-desktop">
+        ${tabsHtml}
       </div>
 
       <div class="nav-user">
@@ -517,9 +529,32 @@ function viewNav() {
           <span class="user-role">${escapeHtml(u.role)}</span>
         </div>
         <div class="avatar">${getInitials(u.firstName)}</div>
-        <button class="btn btn-ghost" data-action="logout">Déconnexion</button>
+        <button class="btn btn-ghost nav-logout-desktop" data-action="logout">Déconnexion</button>
       </div>
+
+      <button class="nav-burger" data-action="toggle-menu" aria-label="Ouvrir le menu" aria-expanded="${state.mobileMenuOpen}">
+        ${state.mobileMenuOpen ? '✕' : '☰'}
+      </button>
     </nav>
+
+    ${state.mobileMenuOpen ? `
+      <div class="nav-mobile-overlay" data-action="close-menu"></div>
+      <div class="nav-mobile-panel" role="menu">
+        <div class="nav-mobile-header">
+          <div class="nav-mobile-user">
+            <div class="avatar">${getInitials(u.firstName)}</div>
+            <div>
+              <div class="user-name">${escapeHtml(u.firstName)}</div>
+              <div class="user-role">${escapeHtml(u.role)}</div>
+            </div>
+          </div>
+        </div>
+        <div class="nav-mobile-tabs">
+          ${tabsHtml}
+        </div>
+        <button class="nav-mobile-logout" data-action="logout">Déconnexion</button>
+      </div>
+    ` : ''}
   `;
 }
 
@@ -603,9 +638,12 @@ document.addEventListener('click', (e) => {
   if (action === 'goto') {
     state.view = btn.dataset.view;
     state.profileEditing = false;
+    state.mobileMenuOpen = false;
     render();
     return;
   }
+  if (action === 'toggle-menu') { state.mobileMenuOpen = !state.mobileMenuOpen; render(); return; }
+  if (action === 'close-menu')  { state.mobileMenuOpen = false; render(); return; }
   if (action === 'logout')             { actionLogout(); return; }
   if (action === 'edit-profile')       { state.profileEditing = true; state.profileError = null; render(); return; }
   if (action === 'cancel-profile-edit'){ state.profileEditing = false; state.profileError = null; render(); return; }

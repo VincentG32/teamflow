@@ -185,7 +185,7 @@ Le champ `userId` sur `Task` est l'équivalent du champ **User** de type **User*
 
 ## 🔐 Comptes de démo
 
-L'app crée trois comptes au premier lancement :
+L'app crée trois comptes au premier lancement (les trois sont aussi affichés directement sur l'écran de connexion) :
 
 | Rôle | Email | Mot de passe |
 |---|---|---|
@@ -225,6 +225,21 @@ Pour vérifier que la règle de confidentialité fonctionne :
 2. **Déconnecte-toi**, **connecte-toi en Bob** (`bob@teamflow.test` / `demo`) → tu vois 2 tâches **différentes** (les siennes).
 3. **Déconnecte-toi**, **connecte-toi en Admin** (`admin@teamflow.test` / `admin`) → tu vois **les 4 tâches** + un onglet **Admin** avec le décompte par utilisateur.
 4. Le **panneau debug** en bas de page affiche `visibleTasksCount` vs `totalTasksCount` pour confirmer le filtrage.
+
+---
+
+## 📝 Changelog
+
+### v2 — 2 mai 2026
+- **Refonte responsive** : 2 breakpoints (768 / 480 px) pensés pour mobile portrait.
+- **Burger menu** ☰ sur mobile : remplace les 4 onglets cramés par un panneau déroulant avec en-tête utilisateur et bouton Déconnexion intégré (overlay sombre + animation).
+- **Table admin → cards** sur mobile : chaque utilisateur dans sa propre carte avec libellés inline (`data-label` + `::before`), beaucoup plus lisible en portrait.
+- **Écran de connexion enrichi** : les 3 comptes de démo (Admin, Alice, Bob) sont listés en bas de la carte, prêts à copier-coller.
+- **Polish mobile** : header de profil empilé vertical, modale plein-largeur, formulaire de tâche en colonne, anti-zoom iOS (`font-size: 16px` + `min-height: 44px` sur les boutons).
+
+### v1 — 2 mai 2026
+- Première mise en ligne avec auth (Sign up / Log in / Log out), Current User, page Profile, gestion des rôles, privacy rule sur les tâches, et persistance localStorage.
+- Déploiement sur GitHub Pages.
 
 ---
 

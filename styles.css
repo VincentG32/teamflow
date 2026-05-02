@@ -177,6 +177,18 @@ button { font-family: inherit; }
   padding: 1px 5px; border-radius: 4px; font-size: 11px;
 }
 
+.auth-hint-list {
+  list-style: none; padding: 0; margin: 8px 0 0 0;
+  display: flex; flex-direction: column; gap: 4px;
+}
+
+.auth-hint-role {
+  display: inline-block;
+  min-width: 44px;
+  font-weight: 600;
+  color: var(--text);
+}
+
 /* ============ FORMS ============ */
 .form-group { margin-bottom: 14px; }
 .form-row { display: flex; gap: 12px; }
@@ -444,25 +456,167 @@ dialog::backdrop { background: rgba(0,0,0,0.4); }
   white-space: pre-wrap; word-break: break-word;
 }
 
+/* ============ BURGER MENU (mobile) ============ */
+.nav-burger {
+  display: none;
+  background: var(--surface);
+  border: 1px solid var(--border-strong);
+  border-radius: 8px;
+  width: 40px; height: 40px;
+  padding: 0; cursor: pointer;
+  align-items: center; justify-content: center;
+  font-size: 18px; color: var(--text);
+  line-height: 1;
+}
+
+.nav-burger:hover { background: var(--surface-2); }
+
+.nav-mobile-overlay {
+  display: none;
+  position: fixed; inset: 0;
+  background: rgba(0, 0, 0, 0.4);
+  z-index: 40;
+  animation: fade-in 0.15s ease-out;
+}
+
+.nav-mobile-panel {
+  display: none;
+  position: fixed; top: 60px; right: 12px;
+  width: calc(100vw - 24px); max-width: 320px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-lg);
+  z-index: 60;
+  overflow: hidden;
+  animation: panel-in 0.18s ease-out;
+}
+
+.nav-mobile-header {
+  padding: 14px 16px;
+  border-bottom: 1px solid var(--border);
+  background: var(--surface-2);
+}
+
+.nav-mobile-user {
+  display: flex; align-items: center; gap: 12px;
+}
+
+.nav-mobile-user .user-name { font-weight: 600; font-size: 14px; }
+.nav-mobile-user .user-role {
+  font-size: 11px; color: var(--muted);
+  text-transform: uppercase; letter-spacing: 0.05em;
+}
+
+.nav-mobile-tabs {
+  display: flex; flex-direction: column;
+  padding: 6px;
+}
+
+.nav-mobile-tabs .nav-tab {
+  text-align: left;
+  padding: 12px 14px;
+  font-size: 15px;
+  border-radius: 8px;
+  min-height: 44px;
+}
+
+.nav-mobile-logout {
+  display: flex; align-items: center; justify-content: center;
+  width: 100%;
+  padding: 14px;
+  background: transparent;
+  border: none; border-top: 1px solid var(--border);
+  color: var(--danger);
+  font-weight: 600; font-size: 14px;
+  cursor: pointer;
+  min-height: 44px;
+}
+
+.nav-mobile-logout:hover { background: var(--danger-soft); }
+
+@keyframes fade-in { from { opacity: 0 } to { opacity: 1 } }
+@keyframes panel-in {
+  from { opacity: 0; transform: translateY(-8px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
 /* ============ RESPONSIVE ============ */
 @media (max-width: 768px) {
-  .nav { padding: 10px 16px; }
-  .nav-tabs { gap: 2px; }
-  .nav-tab { padding: 7px 10px; font-size: 13px; }
-  .nav-user .user-info { display: none; }
+  .nav { padding: 10px 14px; }
   .main { padding: 16px; }
+
+  /* On bascule du nav desktop vers le burger */
+  .nav-tabs-desktop { display: none; }
+  .nav-user .user-info { display: none; }
+  .nav-logout-desktop { display: none; }
+  .nav-burger { display: inline-flex; }
+  .nav-mobile-overlay { display: block; }
+  .nav-mobile-panel { display: block; }
+
+  /* On masque l'avatar pour ne garder que brand + burger sur mobile */
+  .nav-user { display: none; }
+
   .form-row { flex-direction: column; gap: 0; }
   .profile-grid { grid-template-columns: 1fr; gap: 2px 0; }
   .profile-grid dt { margin-top: 8px; }
-  .users-table th:nth-child(3),
-  .users-table td:nth-child(3) { display: none; }
+  .profile-header { gap: 14px; }
+
+  /* Table admin → cards verticales */
+  .users-table, .users-table thead, .users-table tbody,
+  .users-table tr, .users-table th, .users-table td {
+    display: block;
+  }
+  .users-table {
+    border: none;
+    background: transparent;
+  }
+  .users-table thead { display: none; }
+  .users-table tr {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-lg);
+    padding: 12px 14px;
+    margin-bottom: 10px;
+  }
+  .users-table td {
+    padding: 6px 0;
+    border: none;
+    display: flex; justify-content: space-between; align-items: center;
+    gap: 12px;
+  }
+  .users-table td::before {
+    content: attr(data-label);
+    font-size: 12px;
+    color: var(--muted);
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    font-weight: 500;
+  }
+
+  /* Page header un peu plus compact */
+  .page-header h1 { font-size: 22px; }
+  .card { padding: 16px; }
+  .admin-banner { padding: 14px 16px; }
 }
 
 @media (max-width: 480px) {
+  /* Anti-zoom iOS */
   input, select, textarea { font-size: 16px; }
   .btn { min-height: 44px; }
-  .nav-tab { padding: 6px 8px; font-size: 12px; }
-  .auth-card { padding: 22px; }
+
+  .auth-screen { padding: 14px; }
+  .auth-card { padding: 22px 18px; max-width: 100%; }
+  .auth-brand { font-size: 20px; }
+
   .task-item { flex-direction: column; align-items: stretch; }
   .task-actions { justify-content: flex-end; }
+  .task-form { flex-direction: column; }
+  .task-form input { width: 100%; }
+
+  .profile-header { flex-direction: column; align-items: flex-start; gap: 12px; }
+  .avatar-lg { width: 60px; height: 60px; font-size: 22px; }
+
+  /* Modale plein écran sur mobile */
+  dialog { width: calc(100% - 16px); margin: 12px auto; }
 }
