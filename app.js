@@ -464,7 +464,7 @@ function viewProfile() {
         <dt>Prénom</dt><dd>${escapeHtml(u.firstName)}</dd>
         <dt>Email</dt><dd>${escapeHtml(u.email)}</dd>
         <dt>Rôle</dt><dd>${escapeHtml(u.role)}</dd>
-        <dt>Identifiant</dt><dd><code>${escapeHtml(u.id)}</code></dd>
+        ${u.role === 'admin' ? `<dt>Identifiant <small style="color:var(--muted);font-weight:400">(admin)</small></dt><dd><code>${escapeHtml(u.id)}</code></dd>` : ''}
       </dl>
 
       <button class="btn btn-primary" data-action="edit-profile">Modifier mes informations</button>
