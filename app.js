@@ -701,7 +701,6 @@ function viewNav() {
 function viewDebug() {
   const snapshot = {
     currentUser: state.currentUser ? {
-      id: state.currentUser.id,
       firstName: state.currentUser.firstName,
       email: state.currentUser.email,
       role: state.currentUser.role,
