@@ -227,6 +227,20 @@ function actionMoveTask(taskId, dir) {
   render();
 }
 
+function actionMoveTaskTo(taskId, newStatus) {
+  if (!STATUSES.includes(newStatus)) return;
+  const t = db.tasks.find(x => x.id === taskId);
+  if (!t) return;
+  if (state.currentUser.role !== 'admin' && t.userId !== state.currentUser.id) {
+    toast('Action interdite.', 'error');
+    return;
+  }
+  if (t.status === newStatus) return;
+  t.status = newStatus;
+  saveDB();
+  render();
+}
+
 function actionDeleteTask(taskId) {
   const t = db.tasks.find(x => x.id === taskId);
   if (!t) return;
@@ -528,15 +542,15 @@ function kanbanCard(t, isAdmin) {
   const canLeft  = idx > 0;
   const canRight = idx < STATUSES.length - 1;
   return `
-    <div class="kanban-card status-${t.status}">
+    <div class="kanban-card status-${t.status}" draggable="true" data-task-id="${t.id}">
       <div class="kanban-card-title">${escapeHtml(t.title)}</div>
       <div class="kanban-card-meta">
         <span>${formatRelative(t.createdAt)}</span>
         ${isAdmin && owner ? `<span class="kanban-card-owner">${escapeHtml(owner.firstName)}</span>` : ''}
       </div>
       <div class="kanban-card-actions">
-        <button class="btn-icon" data-action="move-task" data-id="${t.id}" data-dir="left"  ${canLeft  ? '' : 'disabled'} title="Reculer">←</button>
-        <button class="btn-icon" data-action="move-task" data-id="${t.id}" data-dir="right" ${canRight ? '' : 'disabled'} title="Avancer">→</button>
+        <button class="btn-icon move-arrow" data-action="move-task" data-id="${t.id}" data-dir="left"  ${canLeft  ? '' : 'disabled'} title="Reculer">←</button>
+        <button class="btn-icon move-arrow" data-action="move-task" data-id="${t.id}" data-dir="right" ${canRight ? '' : 'disabled'} title="Avancer">→</button>
         <button class="btn-icon btn-icon-danger" data-action="delete-task" data-id="${t.id}" title="Supprimer">×</button>
       </div>
     </div>
@@ -798,6 +812,58 @@ document.addEventListener('submit', (e) => {
     actionCreateTask(data);
     form.reset();
   }
+});
+
+/* ===== 15b. Drag & Drop (desktop kanban) =====
+   API HTML5 native — ne s'active qu'à la souris, donc le mobile garde
+   les flèches ← → automatiquement (les events drag* ne sont pas émis
+   par le touch sans polyfill). */
+let draggedTaskId = null;
+
+document.addEventListener('dragstart', (e) => {
+  const card = e.target.closest('.kanban-card[draggable="true"]');
+  if (!card) return;
+  draggedTaskId = card.dataset.taskId;
+  e.dataTransfer.effectAllowed = 'move';
+  e.dataTransfer.setData('text/plain', draggedTaskId);
+  card.classList.add('dragging');
+});
+
+document.addEventListener('dragend', (e) => {
+  const card = e.target.closest('.kanban-card');
+  if (card) card.classList.remove('dragging');
+  document.querySelectorAll('.kanban-col.drag-over').forEach(c => c.classList.remove('drag-over'));
+  draggedTaskId = null;
+});
+
+document.addEventListener('dragover', (e) => {
+  const col = e.target.closest('.kanban-col');
+  if (!col) return;
+  e.preventDefault();
+  e.dataTransfer.dropEffect = 'move';
+});
+
+document.addEventListener('dragenter', (e) => {
+  const col = e.target.closest('.kanban-col');
+  if (!col) return;
+  col.classList.add('drag-over');
+});
+
+document.addEventListener('dragleave', (e) => {
+  const col = e.target.closest('.kanban-col');
+  if (!col) return;
+  // dragleave fire aussi en entrant dans un enfant — on ne nettoie que si on quitte vraiment la colonne
+  if (!col.contains(e.relatedTarget)) col.classList.remove('drag-over');
+});
+
+document.addEventListener('drop', (e) => {
+  const col = e.target.closest('.kanban-col');
+  if (!col) return;
+  e.preventDefault();
+  const taskId = draggedTaskId || e.dataTransfer.getData('text/plain');
+  const newStatus = col.dataset.status;
+  col.classList.remove('drag-over');
+  if (taskId && newStatus) actionMoveTaskTo(taskId, newStatus);
 });
 
 /* ===== 16. Init ===== */

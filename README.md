@@ -236,6 +236,11 @@ Pour vérifier que la règle de confidentialité fonctionne :
 
 ## 📝 Changelog
 
+### v4 — 2 mai 2026
+- **Drag-and-drop sur le kanban (desktop)** 🖱️ : interaction native HTML5, glisser une carte d'une colonne à une autre la déplace au statut correspondant, avec feedback visuel (carte semi-transparente + colonne cible mise en surbrillance + zone de dépose en pointillés).
+- **Mobile garde les flèches** ← → : les events `drag*` ne sont pas émis par le touch sans polyfill, donc l'API HTML5 cohabite naturellement avec les flèches au clavier ; sur desktop, les flèches sont masquées via media query (`min-width: 769px`) pour ne pas faire double emploi avec le drag.
+- Nouvelle action `actionMoveTaskTo(taskId, status)` (déplacement absolu) en complément de `actionMoveTask(taskId, dir)` (déplacement ±1) — toutes deux passent par les mêmes contrôles de privacy/rôle.
+
 ### v3 — 2 mai 2026
 - **Vue Kanban** 📋 : 3 colonnes (À faire / En cours / Terminée), bordure top colorée par statut, boutons ← → pour faire avancer ou reculer une tâche, scroll horizontal avec snap-points sur mobile.
 - **Toggle Liste / Kanban** persistant en mémoire, badges colorés par statut dans la vue liste.
