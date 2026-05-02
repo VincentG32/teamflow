@@ -49,13 +49,16 @@ L'application a été réimplémentée **en code** pour dépasser le cadre de l'
 |---|---|
 | 🔐 **Authentification** | Sign up, Log in, Log out — session persistée, comptes pré-seedés |
 | 👤 **Profil** | Page Profile avec avatar, prénom, email, rôle, identifiant — édition possible |
-| 🛡️ **Rôles** | Champ `role` avec valeur par défaut `user` ; rôle `admin` débloque l'onglet Admin |
-| ✅ **Tâches** | Création, complétion, suppression — chaque tâche appartient à un utilisateur |
+| 🛡️ **Rôles** | Champ `role` avec valeur par défaut `user` ; rôle `admin` débloque l'onglet Admin et l'assignation de tâches |
+| ✅ **Tâches** | 3 statuts (À faire / En cours / Terminée), création, déplacement, suppression |
+| 📋 **Vue Kanban** | Toggle Liste / Kanban avec 3 colonnes colorées, boutons ← → pour faire avancer une tâche |
+| 🎯 **Assignation admin** | Un admin peut créer une tâche pour n'importe quel utilisateur (champ User de type User) |
 | 🔒 **Privacy rule** | Filtrage côté code dans `getVisibleTasks()` : un user ne voit que ses tâches |
-| 🛠 **Espace administrateur** | Vue de tous les utilisateurs et de leurs tâches (rôle admin uniquement) |
+| 🛠 **Espace administrateur** | Vue de tous les utilisateurs et de leurs tâches + zone de danger (reset) |
 | 🪪 **Personnalisation** | « Bienvenue *prénom* » sur l'accueil (équivalent `Current User's first name`) |
-| 💾 **Persistance** | Tout en `localStorage` (utilisateurs, tâches, session) |
-| 🐛 **Panneau debug** | Visualise en direct `Current User`, `Current User is logged in`, vue active, nombre de tâches visibles vs total |
+| 🌙 **Mode sombre** | Toggle dans la nav, persisté en localStorage, géré par variables CSS |
+| 💾 **Persistance** | Tout en `localStorage` (utilisateurs, tâches, session, thème) |
+| 🐛 **Panneau debug** | Visualise en direct `Current User`, `Current User is logged in`, vue active, thème, tâches visibles vs total |
 
 ---
 
@@ -146,10 +149,12 @@ Le fichier est segmenté en blocs numérotés :
 
 ```
 User { id, firstName, email, password, role: 'user' | 'admin' }
-Task { id, title, userId, done, createdAt }
+Task { id, title, userId, status: 'todo' | 'doing' | 'done', createdAt }
 ```
 
-Le champ `userId` sur `Task` est l'équivalent du champ **User** de type **User** côté Bubble. Il est renseigné automatiquement avec `Current User` lors de la création.
+Le champ `userId` sur `Task` est l'équivalent du champ **User** de type **User** côté Bubble. Il est renseigné automatiquement avec `Current User` lors de la création — sauf si un admin choisit explicitement un autre utilisateur via le select « Assigner à ».
+
+> Migration v1 → v2 : à l'ouverture, l'app convertit automatiquement `done: bool` (ancien modèle) vers `status: 'todo' | 'done'`. Le champ `done` est ensuite supprimé.
 
 ### Flux de rendu
 
@@ -210,10 +215,11 @@ L'app crée trois comptes au premier lancement (les trois sont aussi affichés d
 | Page **Profile** + **Current Page User** | `viewProfile()` qui lit `state.currentUser` |
 | Modification du profil | `actionUpdateProfile()` — section 7 |
 | Champ **role** (default `user`) | Ligne `role: 'user'` dans `actionSignup()` |
-| Élément visible **uniquement pour les admins** | `${isAdmin ? '<button…Admin</button>' : ''}` dans `viewNav()` + bannière dans `viewDashboard()` |
-| Type **Ticket / Tâche** avec champ **User** de type **User** | Modèle `Task { …, userId, … }` |
-| Champ **User** renseigné avec **Current User** à la création | `userId: state.currentUser.id` dans `actionCreateTask()` |
+| Élément visible **uniquement pour les admins** | Onglet Admin filtré dans `viewNav()`, select « Assigner à » dans `viewTasks()`, zone de danger dans `viewAdmin()` |
+| Type **Ticket / Tâche** avec champ **User** de type **User** | Modèle `Task { …, userId, status, … }` |
+| Champ **User** renseigné avec **Current User** à la création | `userId: state.currentUser.id` dans `actionCreateTask()` (overridé seulement si admin choisit un assigné) |
 | **Privacy Rule** « *This Thing's User is Current User* » | `getVisibleTasks()` — section 10 |
+| **Conditional formatting** sur le statut | `class="kanban-card status-${t.status}"` + `class="badge badge-status-${t.status}"` |
 
 ---
 
@@ -229,6 +235,15 @@ Pour vérifier que la règle de confidentialité fonctionne :
 ---
 
 ## 📝 Changelog
+
+### v3 — 2 mai 2026
+- **Vue Kanban** 📋 : 3 colonnes (À faire / En cours / Terminée), bordure top colorée par statut, boutons ← → pour faire avancer ou reculer une tâche, scroll horizontal avec snap-points sur mobile.
+- **Toggle Liste / Kanban** persistant en mémoire, badges colorés par statut dans la vue liste.
+- **Assignation admin** : sur la page tâches, un admin a un select supplémentaire « Assigner à » qui liste tous les utilisateurs ; pour les non-admin, le champ User reste forcé à `Current User`. Renforce la démonstration du data type *User*.
+- **Mode sombre** 🌙 : toggle dans la nav (et dans le burger menu mobile), thème persisté en `localStorage`, géré via `[data-theme]` sur `<html>` et un second jeu de variables CSS — aucune duplication de styles.
+- **Espace admin → zone de danger** : bouton « Réinitialiser toutes les données » qui reseed et déconnecte. Pratique pour démos répétées.
+- **Stats dashboard** : passage de 2 à 3 compteurs (À faire / En cours / Terminée) avec libellés sous le chiffre.
+- **Migration auto** des données existantes : `done: bool` → `status: enum` au premier chargement post-update, sans intervention.
 
 ### v2 — 2 mai 2026
 - **Refonte responsive** : 2 breakpoints (768 / 480 px) pensés pour mobile portrait.

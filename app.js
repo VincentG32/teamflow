@@ -8,6 +8,10 @@
 /* ===== 1. DB layer (localStorage wrapper) ===== */
 const DB_KEY = 'teamflow.v1';
 const SESSION_KEY = 'teamflow.session';
+const THEME_KEY = 'teamflow.theme';
+
+const STATUSES = ['todo', 'doing', 'done'];
+const STATUS_LABELS = { todo: 'À faire', doing: 'En cours', done: 'Terminée' };
 
 function loadDB() {
   const raw = localStorage.getItem(DB_KEY);
@@ -38,15 +42,28 @@ const SEED = {
     { id: 'u3', firstName: 'Bob',     email: 'bob@teamflow.test',     password: 'demo',  role: 'user'  },
   ],
   tasks: [
-    { id: 't1', title: 'Préparer la rétro de sprint',     userId: 'u2', done: false, createdAt: Date.now() - 1000*60*60*24*2 },
-    { id: 't2', title: 'Mettre à jour la doc onboarding', userId: 'u2', done: true,  createdAt: Date.now() - 1000*60*60*24*1 },
-    { id: 't3', title: 'Relire la PR #142',               userId: 'u3', done: false, createdAt: Date.now() - 1000*60*60*5    },
-    { id: 't4', title: 'Planifier le 1:1 avec le manager',userId: 'u3', done: false, createdAt: Date.now() - 1000*60*30      },
+    { id: 't1', title: 'Préparer la rétro de sprint',     userId: 'u2', status: 'todo',  createdAt: Date.now() - 1000*60*60*24*2 },
+    { id: 't2', title: 'Mettre à jour la doc onboarding', userId: 'u2', status: 'done',  createdAt: Date.now() - 1000*60*60*24*1 },
+    { id: 't3', title: 'Préparer le démo client',         userId: 'u2', status: 'doing', createdAt: Date.now() - 1000*60*60*8    },
+    { id: 't4', title: 'Relire la PR #142',               userId: 'u3', status: 'doing', createdAt: Date.now() - 1000*60*60*5    },
+    { id: 't5', title: 'Planifier le 1:1 avec le manager',userId: 'u3', status: 'todo',  createdAt: Date.now() - 1000*60*30      },
+    { id: 't6', title: 'Mettre à jour le board Notion',   userId: 'u3', status: 'done',  createdAt: Date.now() - 1000*60*60*24*3 },
   ],
 };
 
 let db = loadDB();
 if (!db) { db = JSON.parse(JSON.stringify(SEED)); saveDB(); }
+
+/* Migration v1 → v2 : { done: bool } → { status: 'todo'|'doing'|'done' } */
+let migrated = false;
+db.tasks.forEach(t => {
+  if (t.status === undefined) {
+    t.status = t.done ? 'done' : 'todo';
+    delete t.done;
+    migrated = true;
+  }
+});
+if (migrated) saveDB();
 
 /* ===== 3. State (équivalents custom states Bubble) ===== */
 const state = {
@@ -56,7 +73,9 @@ const state = {
   authError: null,
   profileEditing: false,
   profileError: null,
-  mobileMenuOpen: false, // burger menu (≤768px)
+  mobileMenuOpen: false,                                  // burger menu (≤768px)
+  tasksView: 'kanban',                                    // 'list' | 'kanban'
+  theme: localStorage.getItem(THEME_KEY) || 'light',      // 'light' | 'dark'
 };
 
 state.currentUser = loadSession();
@@ -172,30 +191,38 @@ function actionUpdateProfile({ firstName, email }) {
 }
 
 /* ===== 8. Actions tasks ===== */
-function actionCreateTask(title) {
+function actionCreateTask({ title, assignedToId }) {
   if (!state.currentUser) return;
   const t = (title || '').trim();
   if (!t) return;
+  // Seul un admin peut assigner une tâche à un autre utilisateur.
+  // Pour tous les autres : le champ User = Current User (privacy + Bubble pattern).
+  let userId = state.currentUser.id;
+  if (state.currentUser.role === 'admin' && assignedToId) {
+    userId = assignedToId;
+  }
   db.tasks.push({
     id: uid('t'),
     title: t,
-    userId: state.currentUser.id,    // ← This Thing's User = Current User
-    done: false,
+    userId,                     // ← This Thing's User = Current User (ou cible si admin)
+    status: 'todo',
     createdAt: Date.now(),
   });
   saveDB();
   render();
 }
 
-function actionToggleTask(taskId) {
+function actionMoveTask(taskId, dir) {
   const t = db.tasks.find(x => x.id === taskId);
   if (!t) return;
-  // Sécurité : un user ne peut modifier QUE ses tâches (admin peut tout).
   if (state.currentUser.role !== 'admin' && t.userId !== state.currentUser.id) {
     toast('Action interdite.', 'error');
     return;
   }
-  t.done = !t.done;
+  const idx = STATUSES.indexOf(t.status);
+  const next = dir === 'left' ? idx - 1 : idx + 1;
+  if (next < 0 || next >= STATUSES.length) return;
+  t.status = STATUSES[next];
   saveDB();
   render();
 }
@@ -214,6 +241,32 @@ function actionDeleteTask(taskId) {
       db.tasks = db.tasks.filter(x => x.id !== taskId);
       saveDB();
       toast('Tâche supprimée.');
+      render();
+    },
+  });
+}
+
+/* ===== 8b. Actions thème + reset ===== */
+function actionToggleTheme() {
+  state.theme = state.theme === 'dark' ? 'light' : 'dark';
+  localStorage.setItem(THEME_KEY, state.theme);
+  render();
+}
+
+function actionResetData() {
+  if (state.currentUser?.role !== 'admin') { toast('Réservé aux admins.', 'error'); return; }
+  confirm({
+    title: 'Réinitialiser toutes les données ?',
+    subtitle: 'Tous les utilisateurs créés et toutes les tâches seront supprimés. Les comptes de démo seront recréés et tu seras déconnecté.',
+    onConfirm: () => {
+      db = JSON.parse(JSON.stringify(SEED));
+      saveDB();
+      saveSession(null);
+      state.currentUser = null;
+      state.view = 'auth';
+      state.authMode = 'login';
+      state.mobileMenuOpen = false;
+      toast('Données réinitialisées.', 'success');
       render();
     },
   });
@@ -308,8 +361,9 @@ function viewAuth() {
 function viewDashboard() {
   const u = state.currentUser;
   const myTasks = getVisibleTasks();
-  const open = myTasks.filter(t => !t.done).length;
-  const done = myTasks.filter(t => t.done).length;
+  const todo  = myTasks.filter(t => t.status === 'todo').length;
+  const doing = myTasks.filter(t => t.status === 'doing').length;
+  const done  = myTasks.filter(t => t.status === 'done').length;
   return `
     <div class="page-header">
       <h1>Bienvenue ${escapeHtml(u.firstName)} 👋</h1>
@@ -327,13 +381,14 @@ function viewDashboard() {
     ` : ''}
 
     <div class="card">
-      <h3 class="card-title">Mes tâches</h3>
-      <div style="display: flex; gap: 24px;">
-        <div><strong style="font-size: 22px;">${open}</strong><div style="color: var(--muted); font-size: 12px;">À faire</div></div>
-        <div><strong style="font-size: 22px;">${done}</strong><div style="color: var(--muted); font-size: 12px;">Terminées</div></div>
+      <h3 class="card-title">${u.role === 'admin' ? 'Toutes les tâches' : 'Mes tâches'}</h3>
+      <div class="dashboard-stats">
+        <div class="stat"><strong>${todo}</strong><span>À faire</span></div>
+        <div class="stat"><strong>${doing}</strong><span>En cours</span></div>
+        <div class="stat"><strong>${done}</strong><span>Terminées</span></div>
       </div>
       <div style="margin-top: 12px;">
-        <button class="btn btn-secondary" data-action="goto" data-view="tasks">Voir mes tâches →</button>
+        <button class="btn btn-secondary" data-action="goto" data-view="tasks">Ouvrir le kanban →</button>
       </div>
     </div>
 
@@ -405,12 +460,21 @@ function viewProfile() {
 
 function viewTasks() {
   const u = state.currentUser;
-  const tasks = getVisibleTasks().slice().sort((a, b) => b.createdAt - a.createdAt);
+  const tasks = getVisibleTasks();
+  const isAdmin = u.role === 'admin';
+
+  const assignSelect = isAdmin ? `
+    <select name="assignedToId" title="Assigner à">
+      <option value="">— Pour moi —</option>
+      ${db.users.map(x => `<option value="${x.id}">${escapeHtml(x.firstName)}</option>`).join('')}
+    </select>
+  ` : '';
+
   return `
     <div class="page-header">
-      <h1>Mes tâches</h1>
-      <p>${u.role === 'admin'
-        ? 'En tant qu\'admin, tu vois les tâches de toute l\'équipe.'
+      <h1>${isAdmin ? 'Toutes les tâches' : 'Mes tâches'}</h1>
+      <p>${isAdmin
+        ? 'En tant qu\'admin, tu vois (et peux assigner) les tâches de toute l\'équipe.'
         : 'Tu ne vois que tes propres tâches (privacy rule).'}
       </p>
     </div>
@@ -418,39 +482,92 @@ function viewTasks() {
     <div class="card">
       <form class="task-form" data-action="create-task">
         <input name="title" type="text" placeholder="Nouvelle tâche…" required>
+        ${assignSelect}
         <button class="btn btn-primary" type="submit">Ajouter</button>
       </form>
+
+      <div class="view-toggle">
+        <button class="view-toggle-btn ${state.tasksView === 'kanban' ? 'active' : ''}" data-action="set-tasks-view" data-view="kanban">📋 Kanban</button>
+        <button class="view-toggle-btn ${state.tasksView === 'list' ? 'active' : ''}"   data-action="set-tasks-view" data-view="list">≡ Liste</button>
+      </div>
 
       ${tasks.length === 0 ? `
         <div class="empty-state">
           <div class="empty-state-title">Aucune tâche pour le moment</div>
           <div>Crée ta première tâche ci-dessus.</div>
         </div>
-      ` : `
-        <div class="task-list">
-          ${tasks.map(t => {
-            const owner = db.users.find(x => x.id === t.userId);
-            return `
-              <div class="task-item ${t.done ? 'task-done' : ''}">
-                <div class="task-main">
-                  <div class="task-title">${escapeHtml(t.title)}</div>
-                  <div class="task-meta">
-                    <span>${formatRelative(t.createdAt)}</span>
-                    ${u.role === 'admin' && owner ? `<span>· par ${escapeHtml(owner.firstName)}</span>` : ''}
-                    ${t.done ? '<span class="badge badge-success">Terminée</span>' : ''}
-                  </div>
-                </div>
-                <div class="task-actions">
-                  <button class="btn btn-secondary" data-action="toggle-task" data-id="${t.id}">
-                    ${t.done ? 'Rouvrir' : 'Terminer'}
-                  </button>
-                  <button class="btn btn-ghost" data-action="delete-task" data-id="${t.id}">Supprimer</button>
-                </div>
+      ` : (state.tasksView === 'kanban' ? renderKanban(tasks, isAdmin) : renderList(tasks, isAdmin))}
+    </div>
+  `;
+}
+
+function renderKanban(tasks, isAdmin) {
+  return `
+    <div class="kanban">
+      ${STATUSES.map(s => {
+        const colTasks = tasks.filter(t => t.status === s).sort((a, b) => b.createdAt - a.createdAt);
+        return `
+          <div class="kanban-col" data-status="${s}">
+            <div class="kanban-col-header">
+              <span>${STATUS_LABELS[s]}</span>
+              <span class="kanban-count">${colTasks.length}</span>
+            </div>
+            <div class="kanban-cards">
+              ${colTasks.map(t => kanbanCard(t, isAdmin)).join('') || '<div class="kanban-empty">Vide</div>'}
+            </div>
+          </div>
+        `;
+      }).join('')}
+    </div>
+  `;
+}
+
+function kanbanCard(t, isAdmin) {
+  const owner = db.users.find(x => x.id === t.userId);
+  const idx = STATUSES.indexOf(t.status);
+  const canLeft  = idx > 0;
+  const canRight = idx < STATUSES.length - 1;
+  return `
+    <div class="kanban-card status-${t.status}">
+      <div class="kanban-card-title">${escapeHtml(t.title)}</div>
+      <div class="kanban-card-meta">
+        <span>${formatRelative(t.createdAt)}</span>
+        ${isAdmin && owner ? `<span class="kanban-card-owner">${escapeHtml(owner.firstName)}</span>` : ''}
+      </div>
+      <div class="kanban-card-actions">
+        <button class="btn-icon" data-action="move-task" data-id="${t.id}" data-dir="left"  ${canLeft  ? '' : 'disabled'} title="Reculer">←</button>
+        <button class="btn-icon" data-action="move-task" data-id="${t.id}" data-dir="right" ${canRight ? '' : 'disabled'} title="Avancer">→</button>
+        <button class="btn-icon btn-icon-danger" data-action="delete-task" data-id="${t.id}" title="Supprimer">×</button>
+      </div>
+    </div>
+  `;
+}
+
+function renderList(tasks, isAdmin) {
+  const sorted = tasks.slice().sort((a, b) => b.createdAt - a.createdAt);
+  return `
+    <div class="task-list">
+      ${sorted.map(t => {
+        const owner = db.users.find(x => x.id === t.userId);
+        const idx = STATUSES.indexOf(t.status);
+        return `
+          <div class="task-item status-${t.status}">
+            <div class="task-main">
+              <div class="task-title">${escapeHtml(t.title)}</div>
+              <div class="task-meta">
+                <span class="badge badge-status-${t.status}">${STATUS_LABELS[t.status]}</span>
+                <span>${formatRelative(t.createdAt)}</span>
+                ${isAdmin && owner ? `<span>· ${escapeHtml(owner.firstName)}</span>` : ''}
               </div>
-            `;
-          }).join('')}
-        </div>
-      `}
+            </div>
+            <div class="task-actions">
+              <button class="btn-icon" data-action="move-task" data-id="${t.id}" data-dir="left"  ${idx > 0 ? '' : 'disabled'} title="Reculer">←</button>
+              <button class="btn-icon" data-action="move-task" data-id="${t.id}" data-dir="right" ${idx < STATUSES.length - 1 ? '' : 'disabled'} title="Avancer">→</button>
+              <button class="btn btn-ghost" data-action="delete-task" data-id="${t.id}">Supprimer</button>
+            </div>
+          </div>
+        `;
+      }).join('')}
     </div>
   `;
 }
@@ -495,6 +612,12 @@ function viewAdmin() {
         }).join('')}
       </tbody>
     </table>
+
+    <div class="card admin-danger-zone">
+      <h3 class="card-title">Zone de danger</h3>
+      <p class="card-subtitle">Réinitialise complètement les données (utilisateurs + tâches) avec les comptes de démo. Pratique pour repartir d'un état propre avant une démonstration.</p>
+      <button class="btn btn-danger" data-action="reset-data">🔄 Réinitialiser toutes les données</button>
+    </div>
   `;
 }
 
@@ -524,6 +647,7 @@ function viewNav() {
       </div>
 
       <div class="nav-user">
+        <button class="btn btn-ghost theme-toggle" data-action="toggle-theme" title="Changer le thème" aria-label="Changer le thème">${state.theme === 'dark' ? '☀️' : '🌙'}</button>
         <div class="user-info">
           <span class="user-name">${escapeHtml(u.firstName)}</span>
           <span class="user-role">${escapeHtml(u.role)}</span>
@@ -548,6 +672,7 @@ function viewNav() {
               <div class="user-role">${escapeHtml(u.role)}</div>
             </div>
           </div>
+          <button class="btn btn-ghost theme-toggle" data-action="toggle-theme" aria-label="Changer le thème">${state.theme === 'dark' ? '☀️ Clair' : '🌙 Sombre'}</button>
         </div>
         <div class="nav-mobile-tabs">
           ${tabsHtml}
@@ -569,6 +694,8 @@ function viewDebug() {
     } : null,
     'Current User is logged in': !!state.currentUser,
     view: state.view,
+    tasksView: state.tasksView,
+    theme: state.theme,
     visibleTasksCount: getVisibleTasks().length,
     totalTasksCount: db.tasks.length,
   };
@@ -583,6 +710,9 @@ function viewDebug() {
 /* ===== 14. Render (dispatcher) ===== */
 function render() {
   const root = $('#app');
+
+  /* Application du thème (light / dark) sur l'élément racine */
+  document.documentElement.dataset.theme = state.theme;
 
   /* Pas de session → écran auth (Sign up / Log in) */
   if (!state.currentUser) {
@@ -644,10 +774,13 @@ document.addEventListener('click', (e) => {
   }
   if (action === 'toggle-menu') { state.mobileMenuOpen = !state.mobileMenuOpen; render(); return; }
   if (action === 'close-menu')  { state.mobileMenuOpen = false; render(); return; }
+  if (action === 'toggle-theme'){ actionToggleTheme(); return; }
+  if (action === 'set-tasks-view') { state.tasksView = btn.dataset.view; render(); return; }
+  if (action === 'move-task')   { actionMoveTask(btn.dataset.id, btn.dataset.dir); return; }
+  if (action === 'reset-data')  { actionResetData(); return; }
   if (action === 'logout')             { actionLogout(); return; }
   if (action === 'edit-profile')       { state.profileEditing = true; state.profileError = null; render(); return; }
   if (action === 'cancel-profile-edit'){ state.profileEditing = false; state.profileError = null; render(); return; }
-  if (action === 'toggle-task')        { actionToggleTask(btn.dataset.id); return; }
   if (action === 'delete-task')        { actionDeleteTask(btn.dataset.id); return; }
 });
 
@@ -662,7 +795,7 @@ document.addEventListener('submit', (e) => {
   else if (action === 'signup')    actionSignup(data);
   else if (action === 'update-profile') actionUpdateProfile(data);
   else if (action === 'create-task') {
-    actionCreateTask(data.title);
+    actionCreateTask(data);
     form.reset();
   }
 });

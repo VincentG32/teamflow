@@ -1,4 +1,4 @@
-:root {
+:root, :root[data-theme="light"] {
   --bg: #f7f7f5;
   --surface: #ffffff;
   --surface-2: #fafafa;
@@ -21,6 +21,31 @@
   --radius: 10px;
   --radius-lg: 14px;
 }
+
+:root[data-theme="dark"] {
+  --bg: #0f0f11;
+  --surface: #1a1a1d;
+  --surface-2: #232328;
+  --border: #2e2e34;
+  --border-strong: #3a3a42;
+  --text: #f0f0ed;
+  --muted: #8a8a85;
+  --accent: #818cf8;
+  --accent-hover: #a5b4fc;
+  --accent-soft: #2a2a3e;
+  --success: #4ade80;
+  --success-soft: #14271c;
+  --warning: #facc15;
+  --warning-soft: #2a2410;
+  --danger: #f87171;
+  --danger-soft: #2a1414;
+  --shadow-sm: 0 1px 2px rgba(0,0,0,0.3);
+  --shadow: 0 1px 3px rgba(0,0,0,0.3), 0 1px 2px rgba(0,0,0,0.4);
+  --shadow-lg: 0 10px 25px rgba(0,0,0,0.5), 0 4px 6px rgba(0,0,0,0.4);
+}
+
+html { transition: background-color 0.2s ease; }
+body { transition: background-color 0.2s ease, color 0.2s ease; }
 
 * { box-sizing: border-box; }
 html, body { margin: 0; padding: 0; }
@@ -342,6 +367,221 @@ input[aria-invalid="true"] { border-color: var(--danger); }
 
 .empty-state-title { font-weight: 600; color: var(--text); margin-bottom: 4px; }
 
+/* ============ VIEW TOGGLE (Liste / Kanban) ============ */
+.view-toggle {
+  display: inline-flex;
+  background: var(--bg);
+  padding: 4px;
+  border-radius: 10px;
+  margin-bottom: 16px;
+  gap: 2px;
+}
+
+.view-toggle-btn {
+  padding: 6px 14px;
+  border: none;
+  background: transparent;
+  border-radius: 7px;
+  color: var(--muted);
+  font-weight: 500;
+  font-size: 13px;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.view-toggle-btn:hover { color: var(--text); }
+
+.view-toggle-btn.active {
+  background: var(--surface);
+  color: var(--text);
+  box-shadow: var(--shadow-sm);
+}
+
+/* ============ ICON BUTTONS (← → ×) ============ */
+.btn-icon {
+  width: 32px; height: 32px;
+  border: 1px solid var(--border-strong);
+  background: var(--surface);
+  border-radius: 8px;
+  font-size: 14px;
+  cursor: pointer;
+  display: inline-flex; align-items: center; justify-content: center;
+  color: var(--text);
+  transition: all 0.15s;
+  padding: 0;
+}
+
+.btn-icon:hover:not(:disabled) {
+  background: var(--accent-soft);
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+.btn-icon:disabled {
+  opacity: 0.35;
+  cursor: not-allowed;
+}
+
+.btn-icon-danger:hover:not(:disabled) {
+  background: var(--danger-soft);
+  border-color: var(--danger);
+  color: var(--danger);
+}
+
+/* ============ KANBAN ============ */
+.kanban {
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr;
+  gap: 12px;
+  margin-top: 8px;
+}
+
+.kanban-col {
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  padding: 12px;
+  min-height: 200px;
+  display: flex; flex-direction: column;
+}
+
+.kanban-col[data-status="todo"]  { border-top: 3px solid var(--muted); }
+.kanban-col[data-status="doing"] { border-top: 3px solid var(--warning); }
+.kanban-col[data-status="done"]  { border-top: 3px solid var(--success); }
+
+.kanban-col-header {
+  display: flex; justify-content: space-between; align-items: center;
+  margin-bottom: 12px;
+  font-weight: 600;
+  font-size: 13px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--muted);
+}
+
+.kanban-count {
+  background: var(--surface);
+  color: var(--text);
+  font-size: 11px;
+  padding: 2px 8px;
+  border-radius: 999px;
+  border: 1px solid var(--border);
+  text-transform: none;
+  letter-spacing: 0;
+}
+
+.kanban-cards {
+  display: flex; flex-direction: column;
+  gap: 8px;
+  flex: 1;
+}
+
+.kanban-empty {
+  color: var(--muted);
+  font-size: 12px;
+  font-style: italic;
+  text-align: center;
+  padding: 14px 0;
+}
+
+.kanban-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 12px;
+  box-shadow: var(--shadow-sm);
+  display: flex; flex-direction: column;
+  gap: 8px;
+}
+
+.kanban-card.status-done .kanban-card-title {
+  color: var(--muted);
+  text-decoration: line-through;
+}
+
+.kanban-card-title {
+  font-weight: 600;
+  font-size: 14px;
+  line-height: 1.35;
+  word-break: break-word;
+}
+
+.kanban-card-meta {
+  font-size: 11px;
+  color: var(--muted);
+  display: flex; gap: 8px; flex-wrap: wrap;
+  align-items: center;
+}
+
+.kanban-card-owner {
+  background: var(--accent-soft);
+  color: var(--accent);
+  padding: 1px 7px;
+  border-radius: 999px;
+  font-weight: 600;
+}
+
+.kanban-card-actions {
+  display: flex; gap: 4px;
+  margin-top: auto;
+  padding-top: 4px;
+  border-top: 1px dashed var(--border);
+}
+
+.kanban-card-actions .btn-icon {
+  width: 28px; height: 28px;
+  font-size: 13px;
+}
+
+/* ============ STATUS BADGES (vue liste) ============ */
+.badge-status-todo  { background: var(--surface-2); color: var(--muted); border: 1px solid var(--border-strong); }
+.badge-status-doing { background: var(--warning-soft); color: var(--warning); }
+.badge-status-done  { background: var(--success-soft); color: var(--success); }
+
+.task-item.status-done .task-title {
+  text-decoration: line-through;
+  color: var(--muted);
+}
+
+/* ============ DASHBOARD STATS ============ */
+.dashboard-stats {
+  display: flex;
+  gap: 28px;
+  flex-wrap: wrap;
+}
+
+.dashboard-stats .stat {
+  display: flex; flex-direction: column;
+}
+
+.dashboard-stats .stat strong {
+  font-size: 26px;
+  letter-spacing: -0.02em;
+}
+
+.dashboard-stats .stat span {
+  color: var(--muted);
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+/* ============ THEME TOGGLE BUTTON ============ */
+.theme-toggle {
+  font-size: 16px;
+  padding: 6px 8px;
+  min-width: 36px;
+}
+
+/* ============ ADMIN DANGER ZONE ============ */
+.admin-danger-zone {
+  border: 1px solid var(--danger);
+  background: var(--danger-soft);
+  margin-top: 24px;
+}
+
+.admin-danger-zone .card-title { color: var(--danger); }
+
 /* ============ ADMIN PANEL ============ */
 .admin-banner {
   background: linear-gradient(135deg, #fce7f3 0%, var(--accent-soft) 100%);
@@ -598,6 +838,20 @@ dialog::backdrop { background: rgba(0,0,0,0.4); }
   .page-header h1 { font-size: 22px; }
   .card { padding: 16px; }
   .admin-banner { padding: 14px 16px; }
+
+  /* Kanban : scroll horizontal en mobile */
+  .kanban {
+    grid-template-columns: 280px 280px 280px;
+    overflow-x: auto;
+    scroll-snap-type: x mandatory;
+    margin: 8px -16px 0;
+    padding: 0 16px 8px;
+  }
+  .kanban-col { scroll-snap-align: start; min-width: 280px; }
+
+  /* Dashboard stats : grille 3 colonnes étroites */
+  .dashboard-stats { gap: 18px; }
+  .dashboard-stats .stat strong { font-size: 22px; }
 }
 
 @media (max-width: 480px) {
