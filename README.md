@@ -92,13 +92,21 @@ Aucun build, aucune config — déployable tel quel sur n'importe quel hébergeu
 - **Netlify Drop** : drag & drop du dossier sur [app.netlify.com/drop](https://app.netlify.com/drop)
 - **Vercel** : `npx vercel`
 
-### Cache-busting
+### Cache-busting (automatique)
 
 Le script [`scripts/cache-bust.sh`](scripts/cache-bust.sh) calcule un hash sha1 court (8 chars) du contenu de `styles.css` et `app.js`, puis patche `index.html` pour ajouter ce hash en query-string sur les imports (`styles.css?v=5c9cf9fd`). Le hash ne change que si le contenu change → le navigateur garde son cache tant que rien ne bouge, et le re-télécharge automatiquement à chaque modif.
 
+Le script est branché en **pre-commit hook** Git ([`scripts/hooks/pre-commit`](scripts/hooks/pre-commit)) : à chaque `git commit`, les hashes sont recalculés et `index.html` est ajouté à la révision si nécessaire. **Aucune manipulation manuelle requise.**
+
+#### Setup pour un fresh clone
+
+Une seule commande à lancer après `git clone` :
+
 ```bash
-./scripts/cache-bust.sh   # à lancer avant chaque git push qui touche au CSS ou au JS
+./scripts/install-hooks.sh   # branche `core.hooksPath` sur scripts/hooks
 ```
+
+Ensuite tous les commits passent automatiquement par le hook.
 
 ---
 

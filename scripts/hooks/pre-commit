@@ -1,0 +1,12 @@
+#!/usr/bin/env bash
+# pre-commit hook — régénère les query-strings de cache-busting avant chaque commit.
+#
+# Activé via `git config core.hooksPath scripts/hooks` (voir scripts/install-hooks.sh).
+# Idempotent : si le contenu de styles.css et app.js n'a pas changé, les hashes
+# restent identiques et `git add index.html` est un no-op.
+
+set -e
+cd "$(git rev-parse --show-toplevel)"
+
+./scripts/cache-bust.sh > /dev/null
+git add index.html
